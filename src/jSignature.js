@@ -479,10 +479,23 @@ var basicDot = function(ctx, x, y, size){
 }
 , strokeStartCallback = function(stroke) {
 	// this = jSignatureClass instance
-	basicDot(this.canvasContext, stroke.x[0], stroke.y[0], this.settings.lineWidth);
+	var stroke2 = Object.assign({}, stroke);
+    let scaleFactor = $(this.canvas).data('scale-factor');
+    if (scaleFactor) {
+        stroke2.x = stroke.x.map((xpos) => xpos / scaleFactor);
+        stroke2.y = stroke.y.map((ypos) => ypos / scaleFactor);
+    }
+	basicDot(this.canvasContext, stroke2.x[0], stroke2.y[0], this.settings.lineWidth);
 }
 , strokeAddCallback = function(stroke, positionInStroke){
 	// this = jSignatureClass instance
+	var stroke2 = Object.assign({}, stroke);
+	let scaleFactor = $(this.canvas).data('scale-factor');
+    if (scaleFactor) {
+        stroke2.x = stroke.x.map((xpos) => xpos / scaleFactor);
+        stroke2.y = stroke.y.map((ypos) => ypos / scaleFactor);
+    }
+
 
 	// Because we are funky this way, here we draw TWO curves.
 	// 1. POSSIBLY "this line" - spanning from point right before us, to this latest point.
@@ -504,8 +517,8 @@ var basicDot = function(ctx, x, y, size){
 	//  post-line (from points C to D) (even through D point is 'current' we don't know how we can draw it yet)
 	//
 	// Well, actually, we don't need to *know* the point A, just the vector A->B
-	var Cpoint = new Point(stroke.x[positionInStroke-1], stroke.y[positionInStroke-1])
-		, Dpoint = new Point(stroke.x[positionInStroke], stroke.y[positionInStroke])
+	var Cpoint = new Point(stroke2.x[positionInStroke-1], stroke2.y[positionInStroke-1])
+		, Dpoint = new Point(stroke2.x[positionInStroke], stroke2.y[positionInStroke])
 		, CDvector = Cpoint.getVectorToPoint(Dpoint);
 
 	// Again, we have a chance here to draw TWO things:
@@ -517,14 +530,14 @@ var basicDot = function(ctx, x, y, size){
 	// Falling through to drawing line CD is proper, as that's the only line we have points for.
 	if(positionInStroke > 1) {
 		// we are here when there are at least 3 points in stroke array.
-		var Bpoint = new Point(stroke.x[positionInStroke-2], stroke.y[positionInStroke-2])
+		var Bpoint = new Point(stroke2.x[positionInStroke-2], stroke2.y[positionInStroke-2])
 		, BCvector = Bpoint.getVectorToPoint(Cpoint)
 		, ABvector;
 		if(BCvector.getLength() > this.lineCurveThreshold){
 			// Yey! Pretty curves, here we come!
 			if(positionInStroke > 2) {
 				// we are here when at least 4 points in stroke array.
-				ABvector = (new Point(stroke.x[positionInStroke-3], stroke.y[positionInStroke-3])).getVectorToPoint(Bpoint);
+				ABvector = (new Point(stroke2.x[positionInStroke-3], stroke2.y[positionInStroke-3])).getVectorToPoint(Bpoint);
 			} else {
 				ABvector = new Vector(0,0);
 			}
@@ -565,6 +578,12 @@ var basicDot = function(ctx, x, y, size){
 }
 , strokeEndCallback = function(stroke){
 	// this = jSignatureClass instance
+    var stroke2 = Object.assign({}, stroke);
+    let scaleFactor = $(this.canvas).data('scale-factor');
+    if (scaleFactor) {
+        stroke2.x = stroke.x.map((xpos) => xpos / scaleFactor);
+        stroke2.y = stroke.y.map((ypos) => ypos / scaleFactor);
+    }
 
 	// Here we tidy up things left unfinished in last strokeAddCallback run.
 
@@ -582,19 +601,19 @@ var basicDot = function(ctx, x, y, size){
 	//  this line (from points B to C)
 	// Well, actually, we don't need to *know* the point A, just the vector A->B
 	// so, we really need points B, C and AB vector.
-	var positionInStroke = stroke.x.length - 1;
+	var positionInStroke = stroke2.x.length - 1;
 
 	if (positionInStroke > 0){
 		// there are at least 2 points in the stroke.we are in business.
-		var Cpoint = new Point(stroke.x[positionInStroke], stroke.y[positionInStroke])
-			, Bpoint = new Point(stroke.x[positionInStroke-1], stroke.y[positionInStroke-1])
+		var Cpoint = new Point(stroke2.x[positionInStroke], stroke2.y[positionInStroke])
+			, Bpoint = new Point(stroke2.x[positionInStroke-1], stroke2.y[positionInStroke-1])
 			, BCvector = Bpoint.getVectorToPoint(Cpoint)
 			, ABvector;
 		if (BCvector.getLength() > this.lineCurveThreshold){
 			// yep. This one was left undrawn in prior callback. Have to draw it now.
 			if (positionInStroke > 1){
 				// we have at least 3 elems in stroke
-				ABvector = (new Point(stroke.x[positionInStroke-2], stroke.y[positionInStroke-2])).getVectorToPoint(Bpoint);
+				ABvector = (new Point(stroke2.x[positionInStroke-2], stroke2.y[positionInStroke-2])).getVectorToPoint(Bpoint);
 				var BCP1vector = new Vector(ABvector.x + BCvector.x, ABvector.y + BCvector.y).resizeTo(BCvector.getLength() / 2);
 				basicCurve(
 					this.canvasContext
@@ -823,6 +842,13 @@ function jSignatureClass(parent, options, instanceExtensions) {
 			// Windows: Chrome, FF, IE9, Safari
 			// None of that scroll shift calc vs screenXY other sigs do is needed.
 			// ... oh, yeah, the "fatFinger.." is for tablets so that people see what they draw.
+			if ($(jSignatureInstance.canvas).data("scale-factor")) {
+                return new Point(
+    				Math.round((firstEvent.pageX + shiftX) * $(jSignatureInstance.canvas).data("scale-factor"))
+    				, Math.round((firstEvent.pageY + shiftY) * $(jSignatureInstance.canvas).data("scale-factor"))
+                                + jSignatureInstance.fatFingerCompensation
+    			);
+            }
 			return new Point(
 				Math.round(firstEvent.pageX + shiftX)
 				, Math.round(firstEvent.pageY + shiftY) + jSignatureInstance.fatFingerCompensation
