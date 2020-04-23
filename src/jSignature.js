@@ -1005,6 +1005,12 @@ jSignatureClass.prototype.resetCanvas = function(data, dontClear){
 	, isCanvasEmulator = this.isCanvasEmulator
 	, cw = canvas.width
 	, ch = canvas.height;
+    
+	let scaleFactor = $(this.canvas).data('scale-factor');
+	if (scaleFactor) {
+		cw = cw / scaleFactor
+		ch = ch / scaleFactor;
+	}
 
 	// preparing colors, drawing area
 	if (!dontClear){
